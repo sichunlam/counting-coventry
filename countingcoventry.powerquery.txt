@@ -1,0 +1,83 @@
+// countingcoventry-src
+let
+    Source = SharePoint.Files("https://address.sharepoint.com/ ", [ApiVersion = 15]),
+    #"csv" = Source{[Name="countingcoventry.csv",#"Folder Path"=" https://address.sharepoint.com/path/to/file/"]}[Content],
+    #"Imported CSV" = Csv.Document(#"csv",[Delimiter=",", Columns=3, Encoding=1252, QuoteStyle=QuoteStyle.None]),
+    #"Removed Top Rows" = Table.Skip(#"Imported CSV",1),
+    #"Promoted Headers" = Table.PromoteHeaders(#"Removed Top Rows", [PromoteAllScalars=true]),
+    #"Filtered Rows1" = Table.SelectRows(#"Promoted Headers", each [datetime] <> null and [datetime] <> ""),
+    #"Changed Type" = Table.TransformColumnTypes(#"Filtered Rows1",{{"mac", type text}, {"datetime", type datetime}, {"device", type text}}),
+    #"Removed Errors" = Table.RemoveRowsWithErrors(#"Changed Type", {"datetime"}),
+    #"Filtered Rows" = Table.SelectRows(#"Removed Errors", each [mac] <> "Counting Coventry" or [mac] <> "mac"),
+    #"Inserted First Characters" = Table.AddColumn(#"Filtered Rows", "manuf", each Text.Start([mac], 8), type text),
+    #"Merged Queries" = Table.NestedJoin(#"Inserted First Characters", {"manuf"}, manuf, {"mac"}, "manuf.1", JoinKind.LeftOuter),
+    #"Uppercased Text" = Table.TransformColumns(#"Merged Queries",{{"manuf", Text.Upper, type text}}),
+    #"Expanded manuf.1" = Table.ExpandTableColumn(#"Uppercased Text", "manuf.1", {"manufacturer"}, {"manufacturer"}),
+    #"Removed Columns" = Table.RemoveColumns(#"Expanded manuf.1",{"manuf"}),
+    #"Inserted Date" = Table.AddColumn(#"Removed Columns", "Date", each DateTime.Date([datetime]), type date),
+    #"Inserted Time" = Table.AddColumn(#"Inserted Date", "Time", each DateTime.Time([datetime]), type time)
+in
+    #"Inserted Time"
+// countingcoventry-5m
+let
+    Source = #"countingcoventry-src",
+    #"Trimmed Text" = Table.TransformColumns(Table.TransformColumnTypes(Source, {{"Time", type text}}, "en-GB"),{{"Time", Text.Trim, type text}}),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Trimmed Text",{{"Time", type time}}),
+    #"Added Custom" = Table.AddColumn(#"Changed Type1", "Time Interval", each [Time] + #duration(0,0,5- Number.Mod(Time.Minute([Time]),5),0)),
+    #"Merged Date and Time" = Table.CombineColumns(#"Added Custom", {"Date", "Time Interval"}, (columns) => List.First(columns) & List.Last(columns), "Date-Time"),
+    #"Changed Type2" = Table.TransformColumnTypes(#"Merged Date and Time",{{"Date-Time", type datetime}}),
+    #"Removed Columns" = Table.RemoveColumns(#"Changed Type2",{"datetime", "Time"}),
+    #"Removed Duplicates" = Table.Distinct(#"Removed Columns"),
+    #"Inserted Date1" = Table.AddColumn(#"Removed Duplicates", "Date", each DateTime.Date([#"Date-Time"]), type date)
+in
+    #"Inserted Date1"
+// countingcoventry-15m
+let
+    Source = #"countingcoventry-src",
+    #"Trimmed Text" = Table.TransformColumns(Table.TransformColumnTypes(Source, {{"Time", type text}}, "en-GB"),{{"Time", Text.Trim, type text}}),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Trimmed Text",{{"Time", type time}}),
+    #"Added Custom" = Table.AddColumn(#"Changed Type1", "Time Interval", each [Time] + #duration(0,0,0- Number.Mod(Time.Minute([Time]),15),0)),
+    #"Filtered Rows" = Table.SelectRows(#"Added Custom", each true),
+    #"Merged Date and Time" = Table.CombineColumns(#"Filtered Rows", {"Date", "Time Interval"}, (columns) => List.First(columns) & List.Last(columns), "Date-Time"),
+    #"Changed Type2" = Table.TransformColumnTypes(#"Merged Date and Time",{{"Date-Time", type datetime}}),
+    #"Removed Columns" = Table.RemoveColumns(#"Changed Type2",{"datetime", "Time"}),
+    #"Removed Duplicates" = Table.Distinct(#"Removed Columns"),
+    #"Inserted Date1" = Table.AddColumn(#"Removed Duplicates", "Date", each DateTime.Date([#"Date-Time"]), type date)
+in
+    #"Inserted Date1"
+// countingcoventry-30m
+let
+    Source = #"countingcoventry-src",
+    #"Trimmed Text" = Table.TransformColumns(Table.TransformColumnTypes(Source, {{"Time", type text}}, "en-GB"),{{"Time", Text.Trim, type text}}),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Trimmed Text",{{"Time", type time}}),
+    #"Added Custom" = Table.AddColumn(#"Changed Type1", "Time Interval", each [Time] + #duration(0,0,0- Number.Mod(Time.Minute([Time]),30),0)),
+    #"Filtered Rows" = Table.SelectRows(#"Added Custom", each true),
+    #"Merged Date and Time" = Table.CombineColumns(#"Filtered Rows", {"Date", "Time Interval"}, (columns) => List.First(columns) & List.Last(columns), "Date-Time"),
+    #"Changed Type2" = Table.TransformColumnTypes(#"Merged Date and Time",{{"Date-Time", type datetime}}),
+    #"Removed Columns" = Table.RemoveColumns(#"Changed Type2",{"datetime", "Time"}),
+    #"Removed Duplicates" = Table.Distinct(#"Removed Columns"),
+    #"Inserted Date1" = Table.AddColumn(#"Removed Duplicates", "Date", each DateTime.Date([#"Date-Time"]), type date)
+in
+    #"Inserted Date1"
+// countingcoventry-60m
+let
+    Source = #"countingcoventry-src",
+    #"Trimmed Text" = Table.TransformColumns(Table.TransformColumnTypes(Source, {{"Time", type text}}, "en-GB"),{{"Time", Text.Trim, type text}}),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Trimmed Text",{{"Time", type time}}),
+    #"Inserted Start of Hour" = Table.AddColumn(#"Changed Type1", "Time Interval", each Time.StartOfHour([Time]), type time),
+    #"Merged Date and Time" = Table.CombineColumns(#"Inserted Start of Hour", {"Date", "Time Interval"}, (columns) => List.First(columns) & List.Last(columns), "Date-Time"),
+    #"Changed Type2" = Table.TransformColumnTypes(#"Merged Date and Time",{{"Date-Time", type datetime}}),
+    #"Removed Columns" = Table.RemoveColumns(#"Changed Type2",{"datetime", "Time"}),
+    #"Removed Duplicates" = Table.Distinct(#"Removed Columns"),
+    #"Inserted Date1" = Table.AddColumn(#"Removed Duplicates", "Date", each DateTime.Date([#"Date-Time"]), type date)
+in
+    #"Inserted Date1"
+// manuf
+let
+    Source = Csv.Document(Web.Contents("https://gitlab.com/wireshark/wireshark/-/raw/master/manuf"),[Delimiter="#(tab)", Columns=3, Encoding=65001, QuoteStyle=QuoteStyle.None]),
+    #"Filtered Rows" = Table.SelectRows(Source, each [Column3] <> null and [Column3] <> ""),
+    #"Renamed Columns" = Table.RenameColumns(#"Filtered Rows",{{"Column1", "mac"}}),
+    #"Removed Columns" = Table.RemoveColumns(#"Renamed Columns",{"Column2"}),
+    #"Renamed Columns1" = Table.RenameColumns(#"Removed Columns",{{"Column3", "manufacturer"}})
+in
+    #"Renamed Columns1"
