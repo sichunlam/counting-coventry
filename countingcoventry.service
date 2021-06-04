@@ -1,0 +1,12 @@
+[Unit]
+Description=Counting Coventry
+[Service]
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+ExecStart=lxterminal -e "/usr/bin/sudo /usr/bin/python3 /home/pi/countingcoventry.py"
+Restart=always
+RestartSec=10s
+KillMode=process
+TimeoutSec=infinity
+[Install]
+WantedBy=graphical.target
